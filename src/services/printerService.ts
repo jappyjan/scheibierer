@@ -98,12 +98,27 @@ async function cleanupConfig(
 }
 
 // https://github.com/bambulab/BambuStudio/wiki/Command-Line-Usage
-async function sliceSTL(
+function getSupportedModelExtension(fileName: string) {
+  const lowerCaseName = fileName.toLowerCase();
+  if (lowerCaseName.endsWith(".stl")) {
+    return ".stl";
+  }
+  if (lowerCaseName.endsWith(".3mf")) {
+    return ".3mf";
+  }
+  return null;
+}
+
+async function sliceModel(
   file: File,
   settings: PrintSettings,
   printer: PrinterWithConnectionDefinition
 ): Promise<string> {
-  const inputFileName = `${await getTempFileName("input")}.stl`;
+  const fileExtension = getSupportedModelExtension(file.name);
+  if (!fileExtension) {
+    throw new Error("Unsupported file type. Please upload .stl or .3mf files.");
+  }
+  const inputFileName = `${await getTempFileName("input")}${fileExtension}`;
   const outputFileName = `${await getTempFileName("output")}.3mf`;
   const outputDir = `${await getTempFileName("outputSlicedata")}`;
   const temporaryMachineConfigurationFileName = `${await getTempFileName(
@@ -181,7 +196,7 @@ async function sliceSTL(
   }
   Console.debug("Validated configuration files");
 
-  Console.debug("Writing stl to temporary file", inputFileName);
+  Console.debug("Writing model to temporary file", inputFileName);
   await writeFile(inputFileName, Buffer.from(await file.arrayBuffer()));
 
   Console.debug(
@@ -257,7 +272,7 @@ ${exportCommand}
     const readableErrorMessage = (error as Error).message.substring(
       `Command failed: ${command}`.length
     );
-    Console.error("Error slicing STL", readableErrorMessage);
+    Console.error("Error slicing model", readableErrorMessage);
     throw new Error(readableErrorMessage.split(settingsPath).join(""));
   } finally {
     if (existsSync(inputFileName)) {
@@ -382,7 +397,7 @@ async function uploadGCodesToKlipper(
 async function uploadGCodeToKlipper(
   printer: PrinterWithConnectionDefinition<KlipperConnectionDetails>,
   gcodeFileNameWithDir: string,
-  originalSTLFileName: string
+  originalModelFileName: string
 ) {
   Console.debug("Uploading 3MF to Klipper");
 
@@ -395,9 +410,9 @@ async function uploadGCodeToKlipper(
 
   Console.debug("using url", url);
 
-  const originalFileNameWithoutDirAndSuffix = originalSTLFileName.substring(
+  const originalFileNameWithoutDirAndSuffix = originalModelFileName.substring(
     0,
-    originalSTLFileName.lastIndexOf(".")
+    originalModelFileName.lastIndexOf(".")
   );
 
   const nameOfPlateWithoutDir = gcodeFileNameWithDir.substring(
@@ -483,6 +498,10 @@ export async function handleFileUpload(
   }
 
   try {
+    if (!getSupportedModelExtension(file.name)) {
+      return sendError("Unsupported file type. Please upload .stl or .3mf files.");
+    }
+
     const settings = PrintSettingsSchema.parse({
       printerManufacturer: formData.get("printer_manufacturer"),
       printerModel: formData.get("printer_model"),
@@ -510,8 +529,8 @@ export async function handleFileUpload(
         return sendError("Printer not found");
       }
 
-      slicedFileName = await sliceSTL(file, settings, printer);
-      Console.debug("Sliced STL", slicedFileName);
+      slicedFileName = await sliceModel(file, settings, printer);
+      Console.debug("Sliced model", slicedFileName);
 
       const fileNames = await uploadToPrinter(printer, slicedFileName, file.name);
       Console.debug("Uploaded 3MF to printer");

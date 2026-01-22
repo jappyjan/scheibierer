@@ -12,7 +12,8 @@ export function FileUpload({ onFileSelect }: FileUploadProps) {
     (e: React.DragEvent) => {
       e.preventDefault();
       const file = e.dataTransfer.files[0];
-      if (file?.name.endsWith(".stl")) {
+      const fileName = file?.name.toLowerCase();
+      if (fileName?.endsWith(".stl") || fileName?.endsWith(".3mf")) {
         onFileSelect(file);
       }
     },
@@ -22,7 +23,7 @@ export function FileUpload({ onFileSelect }: FileUploadProps) {
   const handleClick = useCallback(() => {
     const input = document.createElement("input") as HTMLInputElement;
     input.type = "file";
-    input.accept = ".stl";
+    input.accept = ".stl,.3mf";
     input.style.display = "none";
     input.hidden = true;
     input.addEventListener("change", (e: Event) => {
@@ -48,12 +49,12 @@ export function FileUpload({ onFileSelect }: FileUploadProps) {
       <Upload className="mx-auto h-12 w-12 text-gray-400" />
 
       <p className="mt-2 text-gray-600">
-        Ziehen Sie Ihre .STL Datei hierhin, oder klicken Sie irgendwohin, um sie
-        hochzuladen
+        Ziehen Sie Ihre .STL oder .3MF Datei hierhin, oder klicken Sie
+        irgendwohin, um sie hochzuladen
       </p>
 
       <p className="mt-2 text-gray-600">
-        Drag and drop your .STL file here, or click anywhere to upload
+        Drag and drop your .STL or .3MF file here, or click anywhere to upload
       </p>
     </div>
   );
